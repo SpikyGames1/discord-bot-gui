@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Discord Bot GUI</title>
+    <style>
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+            background-color: #36393F;
+            color: white;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        .container {
+            background-color: #2F3136;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+            text-align: center;
+            width: 300px;
+        }
+        .container h1 {
+            margin-bottom: 20px;
+        }
+        .input-field {
+            margin-bottom: 15px;
+            text-align: left;
+        }
+        .input-field label {
+            display: block;
+            margin-bottom: 5px;
+        }
+        .input-field input {
+            width: 100%;
+            padding: 10px;
+            border: none;
+            border-radius: 5px;
+            background-color: #202225;
+            color: white;
+            font-size: 14px;
+            outline: none;
+        }
+        .login-button {
+            width: 100%;
+            padding: 10px;
+            font-size: 16px;
+            border: none;
+            border-radius: 5px;
+            background-color: #5865F2;
+            color: white;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        .login-button:hover {
+            background-color: #4752C4;
+        }
+        .error {
+            color: #FF0000;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container" id="login-container">
+        <h1>Login as Bot</h1>
+        <div class="input-field">
+            <label for="bot-token">Bot Token</label>
+            <input type="text" id="bot-token" placeholder="Enter your bot token">
+        </div>
+        <button class="login-button" onclick="loginAsBot()">Login</button>
+        <div id="error-message" class="error" style="display: none;">Invalid token or unable to log in.</div>
+    </div>
+
+    <script>
+async function loginAsBot() {
+    const tokenInput = document.getElementById('bot-token');
+    const errorMessage = document.getElementById('error-message');
+    const botToken = tokenInput.value.trim();
+
+    errorMessage.style.display = 'none';
+
+    if (!botToken) {
+        errorMessage.textContent = 'Token cannot be empty.';
+        errorMessage.style.display = 'block';
+        return;
+    }
+
+    try {
+        const response = await fetch('http://localhost:5000/proxy', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                url: 'https://discord.com/api/v10/users/@me',
+                method: 'GET',
+                headers: {
+                    'Authorization': `Bot ${botToken}`,
+                    'Content-Type': 'application/json'
+                },
+                data: null
+            })
+        });
+
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
+        }
+
+        const botData = await response.json();
+        if (botData.username) {
+            // Save token to localStorage
+            localStorage.setItem('discord_bot_token', botToken);
+            
+            // Redirect to dashboard
+            window.location.href = '/dashboard.html';
+        } else {
+            throw new Error('Invalid response from Discord API');
+        }
+
+    } catch (error) {
+        console.error('Login error:', error);
+        errorMessage.textContent = error.message || 'Failed to login. Please check your token and try again.';
+        errorMessage.style.display = 'block';
+    }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,509 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Discord Bot Dashboard</title>
+    <style>
+        /* Base styles */
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+            background-color: #36393F;
+            color: white;
+            height: 100vh;
+        }
+
+        /* Dashboard Layout */
+        .dashboard {
+            display: grid;
+            grid-template-columns: 240px 240px 1fr;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        /* Server List */
+        .server-list {
+            background-color: #202225;
+            padding: 8px;
+            overflow-y: auto;
+        }
+
+        .server-item {
+            padding: 10px;
+            margin-bottom: 8px;
+            background-color: #2F3136;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+
+        .server-item:hover {
+            background-color: #40444B;
+        }
+
+        .server-item.selected {
+            background-color: #5865F2;
+        }
+
+        /* Channel List */
+        .channel-list {
+            background-color: #2F3136;
+            padding: 8px;
+            overflow-y: auto;
+        }
+
+        .channel-item {
+            padding: 8px;
+            margin-bottom: 4px;
+            cursor: pointer;
+            border-radius: 4px;
+            transition: background-color 0.2s;
+        }
+
+        .channel-item:hover {
+            background-color: #40444B;
+        }
+
+        .channel-item.selected {
+            background-color: #40444B;
+        }
+
+        /* Message Area */
+        .message-area {
+            background-color: #36393F;
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+        }
+
+        .messages {
+            flex-grow: 1;
+            overflow-y: auto;
+            padding: 16px;
+            max-height: calc(100vh - 140px);
+        }
+
+        /* Message Styling */
+        .message {
+            display: flex;
+            margin-bottom: 16px;
+            padding: 4px;
+            position: relative;
+        }
+
+        .message:hover .message-options-button {
+            opacity: 1;
+        }
+
+        .message-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            margin-right: 16px;
+            flex-shrink: 0;
+        }
+
+        .message-content {
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .message-author {
+            font-weight: bold;
+            margin-bottom: 4px;
+            color: #fff;
+        }
+
+        .message-text {
+            color: #dcddde;
+            word-wrap: break-word;
+        }
+
+        /* Message Options */
+        .message-options-button {
+            position: absolute;
+            top: 4px;
+            right: 4px;
+            opacity: 0;
+            transition: opacity 0.2s;
+            background: none;
+            border: none;
+            color: #b9bbbe;
+            cursor: pointer;
+            padding: 4px 8px;
+            border-radius: 4px;
+        }
+
+        .message-options-button:hover {
+            background-color: #40444B;
+            color: #dcddde;
+        }
+
+        .message-options-menu {
+            position: absolute;
+            top: 28px;
+            right: 4px;
+            background-color: #18191c;
+            border-radius: 4px;
+            box-shadow: 0 8px 16px rgba(0, 0, 0, 0.24);
+            z-index: 100;
+            display: none;
+        }
+
+        .message-options-menu.show {
+            display: block;
+        }
+
+        .message-option {
+            padding: 8px 12px;
+            cursor: pointer;
+            color: #dcddde;
+            white-space: nowrap;
+        }
+
+        .message-option:hover {
+            background-color: #5865F2;
+            color: white;
+        }
+
+        .message-option.delete {
+            color: #ed4245;
+        }
+
+        .message-option.delete:hover {
+            background-color: #ed4245;
+            color: white;
+        }
+
+        /* Message Input */
+        .message-input-container {
+            padding: 16px;
+            background-color: #40444B;
+            position: sticky;
+            bottom: 0;
+        }
+
+        .message-input {
+            width: calc(100% - 24px);
+            padding: 12px;
+            border: none;
+            border-radius: 4px;
+            background-color: #2F3136;
+            color: white;
+            resize: none;
+            max-height: 120px;
+            overflow-y: auto;
+        }
+
+        .message-input:focus {
+            outline: none;
+            box-shadow: 0 0 0 2px #5865F2;
+        }
+
+        /* Loading State */
+        .loading {
+            padding: 16px;
+            text-align: center;
+            color: #72767D;
+        }
+    </style>
+</head>
+<body>
+    <div class="dashboard" id="dashboard">
+        <div class="server-list" id="server-list">
+            <div class="loading">Loading servers...</div>
+        </div>
+        <div class="channel-list" id="channel-list">
+            <div class="loading">Select a server to view channels</div>
+        </div>
+        <div class="message-area">
+            <div class="messages" id="messages">
+                <div class="loading">Select a channel to view messages</div>
+            </div>
+            <div class="message-input-container">
+                <textarea 
+                    class="message-input" 
+                    id="message-input"
+                    placeholder="Message..."
+                    rows="3"
+                ></textarea>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentServerId = null;
+        let currentChannelId = null;
+        let botToken = localStorage.getItem('discord_bot_token');
+
+        // Auto-initialize if we have a token
+        if (botToken) {
+            console.log('Found token, initializing dashboard...');
+            initializeDashboard(botToken);
+        } else {
+            console.error('No token found in localStorage');
+            window.location.href = '/index.html';  // Redirect back to login if no token
+        }
+
+        // Initialize dashboard with the bot token
+        async function initializeDashboard(token) {
+            botToken = token;
+            await loadServers();
+        }
+
+        // Load servers
+        async function loadServers() {
+            try {
+                console.log('Loading servers...');
+                const response = await makeRequest({
+                    url: 'https://discord.com/api/v10/users/@me/guilds',
+                    method: 'GET'
+                });
+                
+                const serverList = document.getElementById('server-list');
+                if (!response || !Array.isArray(response)) {
+                    throw new Error('Invalid server response format');
+                }
+
+                if (response.length === 0) {
+                    serverList.innerHTML = '<div class="loading">No servers found. Make sure the bot is invited to some servers.</div>';
+                    return;
+                }
+
+                serverList.innerHTML = response.map(server => `
+                    <div class="server-item" onclick="selectServer('${server.id}')">
+                        ${server.name}
+                    </div>
+                `).join('');
+                
+                console.log(`Loaded ${response.length} servers`);
+            } catch (error) {
+                console.error('Error loading servers:', error);
+                const serverList = document.getElementById('server-list');
+                serverList.innerHTML = `<div class="loading">Error loading servers: ${error.message}</div>`;
+            }
+        }
+
+        // Load channels for a server
+        async function loadChannels(serverId) {
+            try {
+                const response = await makeRequest({
+                    url: `https://discord.com/api/v10/guilds/${serverId}/channels`,
+                    method: 'GET'
+                });
+
+                const channelList = document.getElementById('channel-list');
+                const textChannels = response.filter(channel => channel.type === 0);
+                channelList.innerHTML = textChannels.map(channel => `
+                    <div class="channel-item" onclick="selectChannel('${channel.id}')">
+                        # ${channel.name}
+                    </div>
+                `).join('');
+            } catch (error) {
+                console.error('Error loading channels:', error);
+            }
+        }
+
+        // Load messages for a channel
+        async function loadMessages(channelId) {
+            try {
+                const messagesContainer = document.getElementById('messages');
+                const response = await makeRequest({
+                    url: `https://discord.com/api/v10/channels/${channelId}/messages`,
+                    method: 'GET'
+                });
+
+                const shouldScroll = messagesContainer.scrollTop + messagesContainer.clientHeight === messagesContainer.scrollHeight;
+
+                messagesContainer.innerHTML = response.reverse().map(message => `
+                    <div class="message" data-message-id="${message.id}" data-author-id="${message.author.id}">
+                        <img 
+                            class="message-avatar" 
+                            src="${message.author.avatar 
+                                ? `https://cdn.discordapp.com/avatars/${message.author.id}/${message.author.avatar}.png` 
+                                : 'https://cdn.discordapp.com/embed/avatars/0.png'}"
+                            alt="${message.author.username}'s avatar"
+                        >
+                        <div class="message-content">
+                            <div class="message-author">${message.author.username}</div>
+                            <div class="message-text">${message.content}</div>
+                        </div>
+                        <button class="message-options-button">⋮</button>
+                        <div class="message-options-menu">
+                            <div class="message-option" onclick="copyMessageText('${message.id}')">Copy Text</div>
+                            <div class="message-option" onclick="copyUserId('${message.author.id}')">Copy User ID</div>
+                            <div class="message-option delete" onclick="deleteMessage('${message.id}')">Delete Message</div>
+                        </div>
+                    </div>
+                `).join('');
+
+                if (shouldScroll) {
+                    messagesContainer.scrollTop = messagesContainer.scrollHeight;
+                }
+
+                setupMessageOptions();
+            } catch (error) {
+                console.error('Error loading messages:', error);
+            }
+        }
+
+        // Message options setup
+        function setupMessageOptions() {
+            document.addEventListener('click', (e) => {
+                if (!e.target.classList.contains('message-options-button')) {
+                    document.querySelectorAll('.message-options-menu').forEach(menu => {
+                        menu.classList.remove('show');
+                    });
+                }
+            });
+
+            document.querySelectorAll('.message-options-button').forEach(button => {
+                button.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    const menu = button.nextElementSibling;
+                    
+                    document.querySelectorAll('.message-options-menu').forEach(m => {
+                        if (m !== menu) m.classList.remove('show');
+                    });
+
+                    menu.classList.toggle('show');
+                });
+            });
+        }
+
+        // Copy message text
+        function copyMessageText(messageId) {
+            const messageElement = document.querySelector(`[data-message-id="${messageId}"]`);
+            const text = messageElement.querySelector('.message-text').innerText;
+            navigator.clipboard.writeText(text);
+            closeAllMenus();
+        }
+
+        // Copy user ID
+        function copyUserId(userId) {
+            navigator.clipboard.writeText(userId);
+            closeAllMenus();
+        }
+
+        // Delete message
+        async function deleteMessage(messageId) {
+            try {
+                await makeRequest({
+                    url: `https://discord.com/api/v10/channels/${currentChannelId}/messages/${messageId}`,
+                    method: 'DELETE'
+                });
+                
+                await loadMessages(currentChannelId);
+            } catch (error) {
+                console.error('Error deleting message:', error);
+                if (error.response?.status === 403) {
+                    alert('You do not have permission to delete this message.');
+                } else {
+                    alert('Failed to delete message.');
+                }
+            }
+            closeAllMenus();
+        }
+
+        // Close all menus
+        function closeAllMenus() {
+            document.querySelectorAll('.message-options-menu').forEach(menu => {
+                menu.classList.remove('show');
+            });
+        }
+
+        // Send a message
+        async function sendMessage(content) {
+            if (!currentChannelId || !content.trim()) return;
+
+            const messageInput = document.getElementById('message-input');
+            const originalContent = content;
+
+            try {
+                messageInput.value = '';
+                messageInput.disabled = true;
+                
+                await makeRequest({
+                    url: `https://discord.com/api/v10/channels/${currentChannelId}/messages`,
+                    method: 'POST',
+                    data: { content: originalContent }
+                });
+
+                await loadMessages(currentChannelId);
+                
+            } catch (error) {
+                console.error('Error sending message:', error);
+                messageInput.value = originalContent;
+                alert('Failed to send message. Please try again.');
+            } finally {
+                messageInput.disabled = false;
+                messageInput.focus();
+            }
+        }
+
+        // Helper function for making API requests
+        async function makeRequest({ url, method, data = null }) {
+            try {
+                const response = await fetch('http://localhost:5000/proxy', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        url,
+                        method,
+                        headers: {
+                            'Authorization': `Bot ${botToken}`,
+                            'Content-Type': 'application/json'
+                        },
+                        data
+                    })
+                });
+
+                if (!response.ok) {
+                    const responseData = await response.json();
+                    throw new Error(responseData.error || `HTTP error! status: ${response.status}`);
+                }
+
+                return await response.json();
+            } catch (error) {
+                console.error('Error in makeRequest:', error);
+                throw error;
+            }
+        }
+
+        // Event handlers
+        function selectServer(serverId) {
+            currentServerId = serverId;
+            document.querySelectorAll('.server-item').forEach(item => {
+                item.classList.remove('selected');
+            });
+            event.currentTarget.classList.add('selected');
+            loadChannels(serverId);
+        }
+
+        function selectChannel(channelId) {
+            currentChannelId = channelId;
+            document.querySelectorAll('.channel-item').forEach(item => {
+                item.classList.remove('selected');
+            });
+            event.currentTarget.classList.add('selected');
+            loadMessages(channelId);
+        }
+        // Message input events
+        document.getElementById('message-input').addEventListener('keydown', async (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                const messageInput = document.getElementById('message-input');
+                const content = messageInput.value;
+                
+                if (content.trim()) {
+                    await sendMessage(content);
+                }
+            }
+        });
+    </script>
+</body>
+</html>

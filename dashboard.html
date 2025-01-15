@@ -238,13 +238,13 @@
         let currentChannelId = null;
         let botToken = localStorage.getItem('discord_bot_token');
 
-        // Auto-initialize if we have a token
+        // Auto-initialize token
         if (botToken) {
             console.log('Found token, initializing dashboard...');
             initializeDashboard(botToken);
         } else {
             console.error('No token found in localStorage');
-            window.location.href = '/index.html';  // Redirect back to login if no token
+            window.location.href = '/index.html';  // put token bruh
         }
 
         // Initialize dashboard with the bot token
@@ -286,7 +286,7 @@
             }
         }
 
-        // Load channels for a server
+        // Load channels for server
         async function loadChannels(serverId) {
             try {
                 const response = await makeRequest({
@@ -306,7 +306,7 @@
             }
         }
 
-        // Load messages for a channel
+        // Load messages for channel
         async function loadMessages(channelId) {
             try {
                 const messagesContainer = document.getElementById('messages');
@@ -443,7 +443,7 @@
             }
         }
 
-        // Helper function for making API requests
+        // real
         async function makeRequest({ url, method, data = null }) {
             try {
                 const response = await fetch('http://localhost:5000/proxy', {

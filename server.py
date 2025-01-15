@@ -1,12 +1,10 @@
 from flask import Flask, request, jsonify, Response, send_from_directory
 from flask_cors import CORS
 import requests
-import os
 
 app = Flask(__name__)
 CORS(app)
 
-# Serve static files (your HTML pages)
 @app.route('/')
 def index():
     return send_from_directory('.', 'index.html')
